@@ -17,6 +17,8 @@ export class Map implements OnInit {
   markers: L.Marker[] = [];
   currentPlaceIndex = 0;
 
+  // pins personalizados:
+
   greenIcon = new L.Icon({
     iconUrl: 'leaf-green.png',
     shadowUrl: 'leaf-shadow.png',
