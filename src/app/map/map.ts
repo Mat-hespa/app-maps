@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit } from '@angular/core';
 import * as L from 'leaflet';
+
 
 @Component({
   selector: 'app-map',
@@ -8,10 +9,13 @@ import * as L from 'leaflet';
   styleUrls: ['./map.scss'],
   imports: [CommonModule],
   standalone: true,
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class Map implements OnInit {
   map!: L.Map;
   popup = L.popup();
+  markers: L.Marker[] = [];
+  currentPlaceIndex = 0;
 
   greenIcon = new L.Icon({
     iconUrl: 'leaf-green.png',
@@ -43,6 +47,33 @@ export class Map implements OnInit {
     popupAnchor: [-3, -76],
   });
 
+  places = [
+    {
+      name: 'Natal',
+      description: 'Praias incríveis e clima tropical.',
+      image: 'assets/praia.jpg',
+      coordinates: [-5.7945, -35.211] as L.LatLngTuple,
+    },
+    {
+      name: 'Gramado',
+      description: 'Cidade charmosa na serra gaúcha.',
+      image: 'assets/praia.jpg',
+      coordinates: [-29.3747, -50.8764] as L.LatLngTuple,
+    },
+    {
+      name: 'São José dos Campos',
+      description: 'Polo tecnológico do Vale do Paraíba.',
+      image: 'assets/praia.jpg',
+      coordinates: [-23.1896, -45.8841] as L.LatLngTuple,
+    },
+    {
+      name: 'Minas Gerais',
+      description: 'Terra de montanhas e culinária famosa.',
+      image: 'assets/praia.jpg',
+      coordinates: [-18.5122, -44.555] as L.LatLngTuple,
+    },
+  ];
+
   ngOnInit(): void {
     this.initializeMap();
     this.map.on('click', this.onMapClick.bind(this));
@@ -55,37 +86,54 @@ export class Map implements OnInit {
       attribution:
         '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(this.map);
-  
-    // Coordenadas dos lugares
-    const natal = [-5.7945, -35.211]; // Natal
-    const gramado = [-29.3747, -50.8764]; // Gramado
-    const saoJoseDosCampos = [-23.1896, -45.8841]; // São José dos Campos
-    const minasGerais = [-18.5122, -44.555]; // Minas Gerais
-  
-    // Adiciona marcadores para os lugares
-    L.marker(natal as L.LatLngTuple).addTo(this.map).bindPopup('Natal');
-    L.marker(gramado as L.LatLngTuple).addTo(this.map).bindPopup('Gramado');
-    L.marker(saoJoseDosCampos as L.LatLngTuple).addTo(this.map).bindPopup('São José dos Campos');
-    L.marker(minasGerais as L.LatLngTuple).addTo(this.map).bindPopup('Minas Gerais');
-  
+
+    // Adiciona marcadores e salva referência
+    this.places.forEach((place, idx) => {
+      const marker = L.marker(place.coordinates)
+        .addTo(this.map)
+        .bindPopup(
+          `<b>${place.name}</b><br>${place.description}<br><img src="${place.image}" alt="${place.name}" style="width:120px;border-radius:8px;margin-top:8px;">`
+        );
+      this.markers.push(marker);
+    });
+
     // Traçado entre os lugares
     const polyline = L.polyline(
-      [natal as L.LatLngTuple, gramado as L.LatLngTuple, saoJoseDosCampos as L.LatLngTuple, minasGerais as L.LatLngTuple],
+      this.places.map((p) => p.coordinates),
       {
         color: 'blue',
         weight: 4,
         opacity: 0.7,
       }
     ).addTo(this.map);
-  
-    // Ajusta o zoom para caber o traçado
+
     this.map.fitBounds(polyline.getBounds());
   }
-  
+
+  focusPlace(index: number) {
+    const place = this.places[index];
+    this.map.setView(place.coordinates, 10, { animate: true });
+    this.markers[index].openPopup();
+  }
+
   onMapClick(e: L.LeafletMouseEvent) {
     this.popup
       .setLatLng(e.latlng)
-      .setContent('You clicked the map at ' + e.latlng.toString())
+      .setContent('Você clicou no mapa em ' + e.latlng.toString())
       .openOn(this.map);
+  }
+
+  showPrevPlace() {
+    if (this.currentPlaceIndex > 0) {
+      this.currentPlaceIndex--;
+      this.focusPlace(this.currentPlaceIndex);
+    }
+  }
+
+  showNextPlace() {
+    if (this.currentPlaceIndex < this.places.length - 1) {
+      this.currentPlaceIndex++;
+      this.focusPlace(this.currentPlaceIndex);
+    }
   }
 }
