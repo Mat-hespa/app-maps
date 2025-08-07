@@ -1,7 +1,19 @@
+// filepath: c:\Users\User\Documents\map-app\src\app\map\map.ts
 import { CommonModule } from '@angular/common';
 import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import * as L from 'leaflet';
 
+interface Place {
+  name: string;
+  description: string;
+  image: string;
+  coordinates: L.LatLngTuple;
+  status: 'planned' | 'visited';
+  plannedDate?: string;
+  visitDate?: string;
+  visitDescription?: string;
+}
 
 @Component({
   selector: 'app-map',
@@ -15,127 +27,154 @@ export class Map implements OnInit {
   map!: L.Map;
   popup = L.popup();
   markers: L.Marker[] = [];
-  currentPlaceIndex = 0;
 
-  // pins personalizados:
-
-  greenIcon = new L.Icon({
-    iconUrl: 'leaf-green.png',
-    shadowUrl: 'leaf-shadow.png',
-    iconSize: [38, 95],
-    shadowSize: [50, 64],
-    iconAnchor: [22, 94],
-    shadowAnchor: [4, 62],
-    popupAnchor: [-3, -76],
-  });
-
-  redIcon = new L.Icon({
-    iconUrl: 'leaf-red.png',
-    shadowUrl: 'leaf-shadow.png',
-    iconSize: [38, 95],
-    shadowSize: [50, 64],
-    iconAnchor: [22, 94],
-    shadowAnchor: [4, 62],
-    popupAnchor: [-3, -76],
-  });
-
-  orangeIcon = new L.Icon({
-    iconUrl: 'leaf-orange.png',
-    shadowUrl: 'leaf-shadow.png',
-    iconSize: [38, 95],
-    shadowSize: [50, 64],
-    iconAnchor: [22, 94],
-    shadowAnchor: [4, 62],
-    popupAnchor: [-3, -76],
-  });
-
-  places = [
+  // Dados iniciais (alguns já visitados para exemplo)
+  places: Place[] = [
     {
       name: 'Natal',
       description: 'Praias incríveis e clima tropical.',
       image: 'assets/praia.jpg',
-      coordinates: [-5.7945, -35.211] as L.LatLngTuple,
+      coordinates: [-5.7945, -35.211],
+      status: 'visited',
+      visitDate: '2023-12-15',
+      visitDescription: 'Viagem incrível! As praias eram maravilhosas.'
     },
     {
       name: 'Gramado',
       description: 'Cidade charmosa na serra gaúcha.',
       image: 'assets/praia.jpg',
-      coordinates: [-29.3747, -50.8764] as L.LatLngTuple,
+      coordinates: [-29.3747, -50.8764],
+      status: 'planned',
+      plannedDate: '2024-07-20'
     },
     {
       name: 'São José dos Campos',
       description: 'Polo tecnológico do Vale do Paraíba.',
       image: 'assets/praia.jpg',
-      coordinates: [-23.1896, -45.8841] as L.LatLngTuple,
-    },
-    {
-      name: 'Minas Gerais',
-      description: 'Terra de montanhas e culinária famosa.',
-      image: 'assets/praia.jpg',
-      coordinates: [-18.5122, -44.555] as L.LatLngTuple,
-    },
+      coordinates: [-23.1896, -45.8841],
+      status: 'planned',
+      plannedDate: '2024-09-10'
+    }
   ];
 
+  constructor(private router: Router) {}
+
   ngOnInit(): void {
+    this.loadPlacesFromStorage();
     this.initializeMap();
-    this.map.on('click', this.onMapClick.bind(this));
+  }
+
+  // Getter para lugares visitados
+  get visitedPlaces(): Place[] {
+    return this.places.filter(place => place.status === 'visited');
+  }
+
+  // Getter para lugares planejados
+  get plannedPlaces(): Place[] {
+    return this.places.filter(place => place.status === 'planned');
+  }
+
+  loadPlacesFromStorage(): void {
+    const savedPlaces = localStorage.getItem('places');
+    if (savedPlaces) {
+      const newPlaces = JSON.parse(savedPlaces);
+      this.places = [...this.places, ...newPlaces];
+    }
   }
 
   initializeMap(): void {
-    this.map = L.map('map').setView([-14.235, -51.9253], 5); // Centraliza no Brasil
+    this.map = L.map('map').setView([-14.235, -51.9253], 5);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution:
-        '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(this.map);
 
-    // Adiciona marcadores e salva referência
-    this.places.forEach((place, idx) => {
+    this.updateMapMarkers();
+  }
+
+  updateMapMarkers(): void {
+    this.markers.forEach(marker => marker.remove());
+    this.markers = [];
+
+    this.places.forEach((place) => {
+      // Cores diferentes para visitados e planejados
+      const iconColor = place.status === 'visited' ? '🔴' : '🔵';
+      
       const marker = L.marker(place.coordinates)
         .addTo(this.map)
         .bindPopup(
-          `<b>${place.name}</b><br>${place.description}<br><img src="${place.image}" alt="${place.name}" style="width:120px;border-radius:8px;margin-top:8px;">`
+          `<div style="text-align: center;">
+            <b>${place.name}</b><br>
+            <span style="color: ${place.status === 'visited' ? '#ef4444' : '#3b82f6'};">
+              ${place.status === 'visited' ? '✅ Visitado' : '📋 Planejado'}
+            </span><br>
+            ${place.visitDescription || place.description}<br>
+            <img src="${place.image}" alt="${place.name}" style="width:120px;border-radius:8px;margin-top:8px;">
+          </div>`
         );
       this.markers.push(marker);
     });
 
-    // Traçado entre os lugares
-    const polyline = L.polyline(
-      this.places.map((p) => p.coordinates),
-      {
-        color: 'blue',
-        weight: 4,
+    // Traçado apenas para lugares visitados
+    const visitedCoordinates = this.visitedPlaces.map(p => p.coordinates);
+    if (visitedCoordinates.length > 1) {
+      L.polyline(visitedCoordinates, {
+        color: '#ef4444',
+        weight: 3,
         opacity: 0.7,
-      }
-    ).addTo(this.map);
+      }).addTo(this.map);
+    }
 
-    this.map.fitBounds(polyline.getBounds());
+    // Ajusta o zoom para mostrar todos os lugares
+    if (this.places.length > 0) {
+      const group = new L.FeatureGroup(this.markers);
+      this.map.fitBounds(group.getBounds().pad(0.1));
+    }
   }
 
   focusPlace(index: number) {
-    const place = this.places[index];
+    const place = this.visitedPlaces[index];
+    const placeIndex = this.places.findIndex(p => p === place);
     this.map.setView(place.coordinates, 10, { animate: true });
-    this.markers[index].openPopup();
+    this.markers[placeIndex].openPopup();
   }
 
-  onMapClick(e: L.LeafletMouseEvent) {
-    this.popup
-      .setLatLng(e.latlng)
-      .setContent('Você clicou no mapa em ' + e.latlng.toString())
-      .openOn(this.map);
+  focusPlannedPlace(index: number) {
+    const place = this.plannedPlaces[index];
+    const placeIndex = this.places.findIndex(p => p === place);
+    this.map.setView(place.coordinates, 10, { animate: true });
+    this.markers[placeIndex].openPopup();
   }
 
-  showPrevPlace() {
-    if (this.currentPlaceIndex > 0) {
-      this.currentPlaceIndex--;
-      this.focusPlace(this.currentPlaceIndex);
+  markAsVisited(place: Place, event: Event) {
+    event.stopPropagation(); // Previne o click do card
+    
+    // Aqui você pode abrir um modal para adicionar detalhes da visita
+    // Por simplicidade, vou usar prompt (em produção, use um modal)
+    const visitDescription = prompt('Como foi a viagem? Conte os detalhes:', place.description);
+    
+    if (visitDescription !== null) {
+      place.status = 'visited';
+      place.visitDate = new Date().toISOString();
+      place.visitDescription = visitDescription || place.description;
+      delete place.plannedDate;
+      
+      // Salva no localStorage
+      this.savePlacesToStorage();
+      
+      // Atualiza o mapa
+      this.updateMapMarkers();
     }
   }
 
-  showNextPlace() {
-    if (this.currentPlaceIndex < this.places.length - 1) {
-      this.currentPlaceIndex++;
-      this.focusPlace(this.currentPlaceIndex);
-    }
+  savePlacesToStorage(): void {
+    const placesToSave = this.places.filter(place => 
+      !['Natal', 'Gramado', 'São José dos Campos'].includes(place.name)
+    );
+    localStorage.setItem('places', JSON.stringify(placesToSave));
+  }
+
+  navigateToAddPlace() {
+    this.router.navigate(['/add-place']);
   }
 }
