@@ -23,8 +23,12 @@
             ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-             "assets": [
-              "src/assets"
+            "assets": [
+              "src/assets",
+              "public/manifest.json",
+              "public/sw.js",
+              "public/icon-192.png",
+              "public/icon-512.png"
             ],
             "styles": [
               "src/styles.scss"
