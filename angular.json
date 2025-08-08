@@ -25,10 +25,10 @@
             "inlineStyleLanguage": "scss",
             "assets": [
               "src/assets",
-              "public/manifest.json",
-              "public/sw.js",
-              "public/icon-192.png",
-              "public/icon-512.png"
+              "src/assets/manifest.json",
+              "src/assets/sw.js",
+              "src/assets/icon-192.png",
+              "src/assets/icon-512.png"
             ],
             "styles": [
               "src/styles.scss"
