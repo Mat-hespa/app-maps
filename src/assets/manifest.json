@@ -1,12 +1,11 @@
-
 {
   "name": "App Maps",
   "short_name": "AppMaps",
   "description": "Aplicação de mapas",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a1a",
-  "theme_color": "#2563eb",
+  "background_color": "#111827",
+  "theme_color": "#ef4444",
   "orientation": "portrait-primary",
   "icons": [
     {
