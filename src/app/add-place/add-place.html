@@ -1,5 +1,5 @@
-<div class="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white">
-  
+<div class="min-h-screen bg-gray-900 text-white">
+
   <!-- Header simplificado -->
   <div class="bg-gray-800/50 border-b border-gray-700">
     <div class="container mx-auto px-4 py-6 max-w-4xl">
@@ -11,30 +11,58 @@
 
   <!-- Container principal -->
   <div class="container mx-auto px-4 py-8 max-w-4xl">
-    
+
     <!-- Layout dividido -->
     <div class="grid lg:grid-cols-2 gap-8">
-      
+
       <!-- Formulário -->
       <div class="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 shadow-lg">
         <h2 class="text-xl font-semibold text-red-400 mb-6">Informações do Destino</h2>
-        
+
         <form (ngSubmit)="onSubmit()" class="space-y-6">
-          
-          <!-- Nome do lugar -->
-          <div>
+
+          <!-- Nome do lugar com autocomplete -->
+          <div class="relative">
             <label class="block text-sm font-medium text-red-300 mb-2">
               Destino *
             </label>
             <div class="flex gap-2">
-              <input
-                type="text"
-                [(ngModel)]="newPlace.name"
-                name="name"
-                placeholder="Ex: Paris, Praia do Forte, Casa da Vovó..."
-                class="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-                required
-              />
+              <div class="flex-1 relative">
+                <input
+                  type="text"
+                  [(ngModel)]="newPlace.name"
+                  (input)="onSearchChange()"
+                  (blur)="hideSuggestions()"
+                  name="name"
+                  placeholder="Ex: Paris, Praia do Forte, Casa da Vovó..."
+                  class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+                  required
+                />
+
+                <!-- Lista de sugestões -->
+                <div
+                  *ngIf="showSuggestions"
+                  class="absolute top-full left-0 right-0 z-50 bg-gray-800 border border-gray-600 rounded-xl mt-1 max-h-60 overflow-y-auto shadow-lg"
+                >
+                  <div
+                    *ngFor="let place of filteredPlaces"
+                    (click)="selectPlace(place)"
+                    class="px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-b-0 transition-colors"
+                  >
+                    <div class="flex items-center gap-3">
+                      <span class="text-lg">{{ getCategoryIcon(place.category) }}</span>
+                      <div class="flex-1">
+                        <div class="font-medium text-white">{{ place.name }}</div>
+                        <div class="text-xs text-gray-400">
+                          {{ place.country }}{{ place.state ? ' - ' + place.state : '' }}
+                          • {{ getCategoryName(place.category) }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <button
                 type="button"
                 (click)="searchLocation()"
@@ -46,6 +74,20 @@
                 </svg>
               </button>
             </div>
+          </div>
+
+          <!-- Data planejada -->
+          <div>
+            <label class="block text-sm font-medium text-red-300 mb-2">
+              Data Planejada *
+            </label>
+            <input
+              type="date"
+              [(ngModel)]="newPlace.plannedDate"
+              name="plannedDate"
+              class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+              required
+            />
           </div>
 
           <!-- Planos/Expectativas -->
@@ -82,7 +124,7 @@
             <button
               type="submit"
               class="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-xl transition-all transform hover:scale-105 shadow-lg"
-              [disabled]="!newPlace.name.trim() || !newPlace.description.trim()"
+              [disabled]="!newPlace.name.trim() || !newPlace.description.trim() || !newPlace.plannedDate"
             >
               Adicionar ao Plano
             </button>
@@ -93,7 +135,7 @@
 
       <!-- Mapa e Coordenadas -->
       <div class="space-y-6">
-        
+
         <!-- Coordenadas -->
         <div class="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 shadow-lg">
           <h2 class="text-xl font-semibold text-red-400 mb-4">Coordenadas</h2>
@@ -104,6 +146,7 @@
                 type="number"
                 [value]="newPlace.coordinates[0]"
                 readonly
+                step="any"
                 placeholder="Latitude"
                 class="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-xl text-gray-300 cursor-not-allowed"
               />
@@ -114,6 +157,7 @@
                 type="number"
                 [value]="newPlace.coordinates[1]"
                 readonly
+                step="any"
                 placeholder="Longitude"
                 class="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-xl text-gray-300 cursor-not-allowed"
               />
@@ -124,15 +168,15 @@
         <!-- Mapa -->
         <div class="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 shadow-lg">
           <h2 class="text-xl font-semibold text-red-400 mb-4">Selecione no Mapa</h2>
-          
+
           <div
             id="addPlaceMap"
             class="w-full h-64 lg:h-72 rounded-xl border border-gray-600 overflow-hidden"
           ></div>
-          
+
           <div class="mt-4 bg-red-900/20 border border-red-500/30 rounded-xl p-3">
             <p class="text-red-200 text-xs">
-              💡 Clique no mapa para marcar o local ou use o botão de busca
+              💡 Clique no mapa para marcar o local, use o botão de busca ou digite para autocomplete
             </p>
           </div>
         </div>
