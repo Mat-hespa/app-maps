@@ -60,48 +60,47 @@
         <!-- Container com scroll -->
         <div class="max-h-80 overflow-y-auto space-y-3 pr-2">
           <div
-            *ngFor="let place of visitedPlaces; let i = index"
-            (click)="focusPlace(i)"
-            class="bg-gray-800/40 rounded-xl p-4 cursor-pointer hover:bg-gray-700/50 transition-all border border-red-500/30 shadow-lg relative group"
+            *ngFor="let place of visitedPlaces; trackBy: trackByPlace"
+            class="bg-gray-800/40 rounded-xl p-4 transition-all border border-red-500/30 shadow-lg relative"
           >
-            <!-- Status indicator -->
-            <div class="absolute top-3 right-3">
+            <!-- Menu dropdown button -->
+            <div class="absolute top-3 right-3 flex items-center gap-2">
               <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-600 text-white">
                 Visitado
               </span>
+              <button
+                (click)="togglePlaceMenu(place.id, $event)"
+                class="p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-full transition-colors"
+                title="Opções"
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+                </svg>
+              </button>
             </div>
 
-            <div class="pr-16">
+            <!-- Dropdown menu -->
+            <div *ngIf="activeMenuId === place.id" class="absolute top-12 right-3 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 w-48">
+              <button
+                (click)="editVisitDescription(place, $event); closeMenu()"
+                class="w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm flex items-center gap-2 rounded-t-lg"
+              >
+                ✏️ Editar descrição
+              </button>
+              <button
+                (click)="deletePlace(place, $event); closeMenu()"
+                class="w-full text-left px-4 py-2 hover:bg-gray-700 text-red-400 text-sm flex items-center gap-2 rounded-b-lg"
+              >
+                🗑️ Remover lugar
+              </button>
+            </div>
+
+            <div class="pr-16" (click)="focusPlaceByObject(place)">
               <h3 class="font-semibold text-white mb-2">{{ place.name }}</h3>
               <p class="text-gray-400 text-sm mb-2 line-clamp-2">{{ place.visitDescription || place.description }}</p>
               <p class="text-red-400 text-xs">
                 Visitado em {{ formatDate(place.visitDate!) }}
               </p>
-            </div>
-
-            <!-- Action buttons -->
-            <div class="absolute bottom-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                (click)="editVisitDescription(place, $event)"
-                class="p-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors text-xs"
-                title="Editar descrição"
-              >
-                ✏️
-              </button>
-              <button
-                (click)="markAsPlanned(place, $event)"
-                class="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-xs"
-                title="Marcar como planejado"
-              >
-                📋
-              </button>
-              <button
-                (click)="deletePlace(place, $event)"
-                class="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-xs"
-                title="Remover lugar"
-              >
-                🗑️
-              </button>
             </div>
           </div>
         </div>
@@ -116,41 +115,53 @@
         <!-- Container com scroll -->
         <div class="max-h-80 overflow-y-auto space-y-3 pr-2">
           <div
-            *ngFor="let place of plannedPlaces; let i = index"
-            (click)="focusPlannedPlace(i)"
-            class="bg-gray-800/40 rounded-xl p-4 cursor-pointer hover:bg-gray-700/50 transition-all border border-blue-500/30 shadow-lg relative group"
+            *ngFor="let place of plannedPlaces; trackBy: trackByPlace"
+            class="bg-gray-800/40 rounded-xl p-4 transition-all border border-blue-500/30 shadow-lg relative"
           >
-            <!-- Status indicator -->
-            <div class="absolute top-3 right-3">
+            <!-- Menu dropdown button -->
+            <div class="absolute top-3 right-3 flex items-center gap-2">
               <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">
                 Planejado
               </span>
+              <button
+                (click)="togglePlaceMenu(place.id, $event)"
+                class="p-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded-full transition-colors"
+                title="Opções"
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+                </svg>
+              </button>
             </div>
 
-            <div class="pr-16">
+            <!-- Dropdown menu -->
+            <div *ngIf="activeMenuId === place.id" class="absolute top-12 right-3 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-50 w-48">
+              <button
+                (click)="markAsVisited(place, $event); closeMenu()"
+                class="w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm flex items-center gap-2 rounded-t-lg"
+              >
+                ✅ Marcar como visitado
+              </button>
+              <button
+                (click)="editPlannedDescription(place, $event); closeMenu()"
+                class="w-full text-left px-4 py-2 hover:bg-gray-700 text-white text-sm flex items-center gap-2"
+              >
+                ✏️ Editar descrição
+              </button>
+              <button
+                (click)="deletePlace(place, $event); closeMenu()"
+                class="w-full text-left px-4 py-2 hover:bg-gray-700 text-red-400 text-sm flex items-center gap-2 rounded-b-lg"
+              >
+                🗑️ Remover lugar
+              </button>
+            </div>
+
+            <div class="pr-16" (click)="focusPlannedPlaceByObject(place)">
               <h3 class="font-semibold text-white mb-2">{{ place.name }}</h3>
               <p class="text-gray-400 text-sm mb-2 line-clamp-2">{{ place.description }}</p>
               <p class="text-blue-400 text-xs">
                 Planejado para {{ formatDate(place.plannedDate!) }}
               </p>
-            </div>
-
-            <!-- Action buttons -->
-            <div class="absolute bottom-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                (click)="markAsVisited(place, $event)"
-                class="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-xs"
-                title="Marcar como visitado"
-              >
-                ✅
-              </button>
-              <button
-                (click)="deletePlace(place, $event)"
-                class="p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors text-xs"
-                title="Remover lugar"
-              >
-                🗑️
-              </button>
             </div>
           </div>
         </div>

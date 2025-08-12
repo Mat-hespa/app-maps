@@ -6,6 +6,7 @@ import * as L from 'leaflet';
 import { PlaceData, PLACES_DATABASE, normalizeText } from '../shared/places';
 
 interface Place {
+  id: string;
   name: string;
   description: string;
   image: string;
@@ -29,6 +30,7 @@ export class AddPlace implements OnInit {
 
   // Dados do formulário
   newPlace: Place = {
+    id: '',
     name: '',
     description: '',
     image: 'assets/praia.jpg', // imagem padrão
@@ -45,8 +47,19 @@ export class AddPlace implements OnInit {
   constructor(private router: Router) {}
 
   ngOnInit(): void {
+    // Garantir que a página comece sempre no topo
+    this.scrollToTop();
+    
     this.initializeMap();
     this.setDefaultDate();
+  }
+
+  // Método para garantir scroll para o topo
+  private scrollToTop(): void {
+    // Múltiplas abordagens para garantir compatibilidade
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }
 
   // Inicializar mapa
@@ -242,6 +255,9 @@ export class AddPlace implements OnInit {
   // Submeter formulário
   onSubmit(): void {
     if (this.newPlace.name.trim() && this.newPlace.description.trim()) {
+      // Gerar ID único para o novo lugar
+      this.newPlace.id = 'place-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
       // Buscar lugares existentes
       const existingPlaces = JSON.parse(localStorage.getItem('places') || '[]');
 

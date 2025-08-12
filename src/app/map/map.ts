@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import * as L from 'leaflet';
 
 interface Place {
+  id: string;
   name: string;
   description: string;
   image: string;
@@ -26,6 +27,7 @@ export class Map implements OnInit {
   map!: L.Map;
   popup = L.popup();
   markers: L.Marker[] = [];
+  activeMenuId: string | null = null;
 
   // Ícones personalizados
   private redIcon = L.divIcon({
@@ -61,6 +63,7 @@ export class Map implements OnInit {
   // Dados iniciais (alguns já visitados para exemplo)
   places: Place[] = [
     {
+      id: 'natal-1',
       name: 'Natal',
       description: 'Praias incríveis e clima tropical.',
       image: 'assets/praia.jpg',
@@ -70,6 +73,7 @@ export class Map implements OnInit {
       visitDescription: 'Viagem incrível! As praias eram maravilhosas.'
     },
     {
+      id: 'gramado-1',
       name: 'Gramado',
       description: 'Cidade charmosa na serra gaúcha.',
       image: 'assets/praia.jpg',
@@ -78,6 +82,7 @@ export class Map implements OnInit {
       plannedDate: '2024-07-20'
     },
     {
+      id: 'sjc-1',
       name: 'São José dos Campos',
       description: 'Polo tecnológico do Vale do Paraíba.',
       image: 'assets/praia.jpg',
@@ -90,8 +95,19 @@ export class Map implements OnInit {
   constructor(private router: Router) {}
 
   ngOnInit(): void {
+    // Garantir que a página comece sempre no topo
+    this.scrollToTop();
+    
     this.loadPlacesFromStorage();
     this.initializeMap();
+  }
+
+  // Método para garantir scroll para o topo
+  private scrollToTop(): void {
+    // Múltiplas abordagens para garantir compatibilidade
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }
 
   // Getter para lugares visitados
@@ -108,8 +124,31 @@ export class Map implements OnInit {
     const savedPlaces = localStorage.getItem('places');
     if (savedPlaces) {
       const newPlaces = JSON.parse(savedPlaces);
+      
+      // Garantir que cada lugar tenha um ID único
+      newPlaces.forEach((place: Place) => {
+        if (!place.id) {
+          place.id = 'place-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        }
+      });
+      
       this.places = [...this.places, ...newPlaces];
     }
+    
+    // Verificar se há IDs duplicados e corrigir
+    this.ensureUniqueIds();
+  }
+
+  private ensureUniqueIds(): void {
+    const usedIds = new Set<string>();
+    
+    this.places.forEach(place => {
+      if (usedIds.has(place.id)) {
+        // Gerar novo ID único se houver duplicata
+        place.id = 'place-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      }
+      usedIds.add(place.id);
+    });
   }
 
   initializeMap(): void {
@@ -208,8 +247,28 @@ export class Map implements OnInit {
     }, 300);
   }
 
+  focusPlaceByObject(place: Place) {
+    const placeIndex = this.places.findIndex(p => p === place);
+    this.map.setView(place.coordinates, 12, { animate: true });
+
+    // Pequeno delay para garantir que o zoom termine antes de abrir o popup
+    setTimeout(() => {
+      this.markers[placeIndex].openPopup();
+    }, 300);
+  }
+
   focusPlannedPlace(index: number) {
     const place = this.plannedPlaces[index];
+    const placeIndex = this.places.findIndex(p => p === place);
+    this.map.setView(place.coordinates, 12, { animate: true });
+
+    // Pequeno delay para garantir que o zoom termine antes de abrir o popup
+    setTimeout(() => {
+      this.markers[placeIndex].openPopup();
+    }, 300);
+  }
+
+  focusPlannedPlaceByObject(place: Place) {
     const placeIndex = this.places.findIndex(p => p === place);
     this.map.setView(place.coordinates, 12, { animate: true });
 
@@ -271,6 +330,21 @@ export class Map implements OnInit {
     }
   }
 
+  editPlannedDescription(place: Place, event: Event) {
+    event.stopPropagation();
+
+    const newDescription = prompt(
+      `Editar descrição do plano para ${place.name}:`,
+      place.description
+    );
+
+    if (newDescription !== null && newDescription.trim() !== '') {
+      place.description = newDescription;
+      this.savePlacesToStorage();
+      this.updateMapMarkers();
+    }
+  }
+
   deletePlace(place: Place, event: Event) {
     event.stopPropagation();
 
@@ -307,5 +381,37 @@ export class Map implements OnInit {
 
   navigateToAddPlace() {
     this.router.navigate(['/add-place']);
+  }
+
+  // Métodos para o menu dropdown mobile
+  togglePlaceMenu(placeId: string, event: Event) {
+    event.stopPropagation();
+    
+    // Sempre fecha outros menus primeiro, depois abre o clicado (se não estava aberto)
+    const wasOpen = this.activeMenuId === placeId;
+    this.activeMenuId = null;
+    if (!wasOpen) {
+      this.activeMenuId = placeId;
+    }
+  }
+
+  closeMenu() {
+    this.activeMenuId = null;
+  }
+
+  trackByPlace(index: number, place: Place): string {
+    return place.id;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event) {
+    // Fechar menu quando clicar fora dos dropdowns
+    const target = event.target as HTMLElement;
+    
+    // Não fechar se clicar no botão de menu ou dentro do dropdown
+    if (!target.closest('button[title="Opções"]') && 
+        !target.closest('.absolute.top-12')) {
+      this.activeMenuId = null;
+    }
   }
 }
