@@ -249,7 +249,13 @@ export class AddPlace implements OnInit {
   setDefaultDate(): void {
     const today = new Date();
     const futureDate = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 dias no futuro
-    this.newPlace.plannedDate = futureDate.toISOString().split('T')[0];
+    
+    // Usar getFullYear, getMonth, getDate para evitar problemas de timezone
+    const year = futureDate.getFullYear();
+    const month = String(futureDate.getMonth() + 1).padStart(2, '0');
+    const day = String(futureDate.getDate()).padStart(2, '0');
+    
+    this.newPlace.plannedDate = `${year}-${month}-${day}`;
   }
 
   // Submeter formulário
@@ -258,11 +264,14 @@ export class AddPlace implements OnInit {
       // Gerar ID único para o novo lugar
       this.newPlace.id = 'place-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
+      // Criar cópia do objeto mantendo a data exatamente como está no input
+      const placeCopy = { ...this.newPlace };
+      
       // Buscar lugares existentes
       const existingPlaces = JSON.parse(localStorage.getItem('places') || '[]');
 
       // Adicionar novo lugar
-      existingPlaces.push(this.newPlace);
+      existingPlaces.push(placeCopy);
 
       // Salvar no localStorage
       localStorage.setItem('places', JSON.stringify(existingPlaces));

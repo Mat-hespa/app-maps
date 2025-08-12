@@ -288,7 +288,14 @@ export class Map implements OnInit {
 
     if (visitDescription !== null && visitDescription.trim() !== '') {
       place.status = 'visited';
-      place.visitDate = new Date().toISOString().split('T')[0];
+      
+      // Usar data local sem conversão de timezone
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      place.visitDate = `${year}-${month}-${day}`;
+      
       place.visitDescription = visitDescription;
       delete place.plannedDate;
 
@@ -306,7 +313,14 @@ export class Map implements OnInit {
 
     if (confirmChange) {
       place.status = 'planned';
-      place.plannedDate = new Date().toISOString().split('T')[0];
+      
+      // Usar data local sem conversão de timezone
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      place.plannedDate = `${year}-${month}-${day}`;
+      
       delete place.visitDate;
       delete place.visitDescription;
 
@@ -375,8 +389,20 @@ export class Map implements OnInit {
 
   formatDate(dateString: string): string {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
+    
+    // Parse manual para evitar problemas de timezone
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      const year = parseInt(parts[0]);
+      const month = parseInt(parts[1]) - 1; // Mês é zero-indexado
+      const day = parseInt(parts[2]);
+      
+      // Criar data local sem conversão de timezone
+      const date = new Date(year, month, day);
+      return date.toLocaleDateString('pt-BR');
+    }
+    
+    return dateString; // Fallback
   }
 
   navigateToAddPlace() {
