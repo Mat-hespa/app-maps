@@ -1,0 +1,53 @@
+/* Correções específicas para iOS/iPhone */
+input, textarea, select {
+  /* Remove estilização padrão do iOS */
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  
+  /* Garante que o box-sizing seja border-box */
+  box-sizing: border-box !important;
+  
+  /* Evita zoom no input em iOS */
+  font-size: 16px !important;
+  
+  /* Remove bordas padrão do iOS */
+  -webkit-border-radius: 0;
+  border-radius: 12px !important;
+  
+  /* Garante que não ultrapasse os limites */
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Correção específica para inputs de data em iOS */
+input[type="date"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-color: #374151 !important;
+  color: white !important;
+}
+
+/* Container flex específico para iOS */
+.flex {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.flex-1 {
+  min-width: 0;
+  flex: 1 1 0%;
+}
+
+/* Grid específico para coordenadas */
+.grid.grid-cols-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.grid.grid-cols-2 > div {
+  min-width: 0;
+  overflow: hidden;
+}
