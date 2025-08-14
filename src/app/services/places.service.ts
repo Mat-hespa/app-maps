@@ -1,13 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap, map } from 'rxjs';
+import { Observable, BehaviorSubject, tap, map, finalize } from 'rxjs';
+import { LoadingService } from './loading.service';
 
 export interface Place {
   _id?: string; // MongoDB ID
   id?: string; // ID local (para compatibilidade)
   name: string;
   description: string;
-  image: string;
+  image?: string; // Imagem agora é opcional
   coordinates: [number, number];
   status: 'planned' | 'visited';
   plannedDate?: string;
@@ -27,7 +28,7 @@ export class PlacesService {
   private placesSubject = new BehaviorSubject<Place[]>([]);
   public places$ = this.placesSubject.asObservable();
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private loadingService: LoadingService) {
     this.loadPlaces();
   }
 

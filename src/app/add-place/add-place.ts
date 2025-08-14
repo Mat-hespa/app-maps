@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import * as L from 'leaflet';
 import { PlaceData, PLACES_DATABASE, normalizeText } from '../shared/places';
 import { PlacesService, Place } from '../services/places.service';
+import { LoadingService } from '../services/loading.service';
 
 @Component({
   selector: 'app-add-place',
@@ -22,7 +23,6 @@ export class AddPlace implements OnInit {
     id: '',
     name: '',
     description: '',
-    image: 'assets/praia.jpg', // imagem padrão
     coordinates: [-14.235, -51.9253], // centro do Brasil
     status: 'planned',
     plannedDate: ''
@@ -35,7 +35,8 @@ export class AddPlace implements OnInit {
 
   constructor(
     private router: Router,
-    private placesService: PlacesService
+    private placesService: PlacesService,
+    private loadingService: LoadingService
   ) {}
 
   ngOnInit(): void {
@@ -257,7 +258,6 @@ export class AddPlace implements OnInit {
       const placeToCreate = {
         name: this.newPlace.name,
         description: this.newPlace.description,
-        image: this.newPlace.image,
         coordinates: this.newPlace.coordinates,
         status: this.newPlace.status as 'planned' | 'visited',
         plannedDate: this.newPlace.plannedDate

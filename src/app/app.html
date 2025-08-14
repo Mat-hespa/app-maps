@@ -1,1 +1,4 @@
 <router-outlet></router-outlet>
+
+<!-- Loading global -->
+<app-loading [loadingState]="(loadingService.loading$ | async) || { isLoading: false }"></app-loading>

@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
 import { PlacesService, Place } from '../services/places.service';
+import { LoadingService } from '../services/loading.service';
 
 @Component({
   selector: 'app-map',
@@ -58,7 +59,8 @@ export class Map implements OnInit, OnDestroy {
 
   constructor(
     private router: Router,
-    private placesService: PlacesService
+    private placesService: PlacesService,
+    private loadingService: LoadingService
   ) {}
 
   ngOnInit(): void {
@@ -133,7 +135,7 @@ export class Map implements OnInit, OnDestroy {
       const marker = L.marker(place.coordinates, { icon })
         .addTo(this.map)
         .bindPopup(
-          `<div style="text-align: center; min-width: 200px;">
+          `<div style="text-align: center; min-width: 160px; max-width: 180px;">
             <h3 style="margin: 0 0 8px 0; color: #1f2937; font-weight: bold;">${place.name}</h3>
             <div style="color: ${statusColor}; font-weight: 600; margin-bottom: 8px;">
               ${statusEmoji} ${statusText}
@@ -149,8 +151,6 @@ export class Map implements OnInit, OnDestroy {
                 Planejado para ${this.formatDate(place.plannedDate!)}
               </div>`
             }
-            <img src="${place.image}" alt="${place.name}"
-                 style="width: 120px; height: 80px; object-fit: cover; border-radius: 8px; margin-top: 8px; border: 2px solid #e5e7eb;">
           </div>`
         );
 
@@ -213,8 +213,10 @@ export class Map implements OnInit, OnDestroy {
     if (visitDescription !== null && visitDescription.trim() !== '') {
       const placeId = place._id || place.id!;
       
+      // Loading já será mostrado pelo interceptor HTTP
       this.placesService.markAsVisited(placeId, visitDescription).subscribe({
         next: () => {
+          // Mostrar feedback visual de sucesso
           alert(`${place.name} foi marcado como visitado! 🎉`);
         },
         error: (error) => {
@@ -236,6 +238,7 @@ export class Map implements OnInit, OnDestroy {
       this.placesService.markAsPlanned(placeId).subscribe({
         next: () => {
           // Sucesso - o observable já atualizará a lista
+          alert(`${place.name} foi movido para lugares planejados!`);
         },
         error: (error) => {
           console.error('Erro ao marcar como planejado:', error);
@@ -302,6 +305,7 @@ export class Map implements OnInit, OnDestroy {
       this.placesService.deletePlace(placeId).subscribe({
         next: () => {
           // Sucesso - o observable já atualizará a lista
+          alert(`${place.name} foi removido da sua lista.`);
         },
         error: (error) => {
           console.error('Erro ao deletar lugar:', error);
