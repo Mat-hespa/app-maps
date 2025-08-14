@@ -4,18 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import * as L from 'leaflet';
 import { PlaceData, PLACES_DATABASE, normalizeText } from '../shared/places';
-
-interface Place {
-  id: string;
-  name: string;
-  description: string;
-  image: string;
-  coordinates: L.LatLngTuple;
-  status: 'planned' | 'visited';
-  plannedDate?: string;
-  visitDate?: string;
-  visitDescription?: string;
-}
+import { PlacesService, Place } from '../services/places.service';
 
 @Component({
   selector: 'app-add-place',
@@ -44,7 +33,10 @@ export class AddPlace implements OnInit {
   filteredPlaces: PlaceData[] = [];
   searchQuery = '';
 
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private placesService: PlacesService
+  ) {}
 
   ngOnInit(): void {
     // Garantir que a página comece sempre no topo
@@ -261,23 +253,27 @@ export class AddPlace implements OnInit {
   // Submeter formulário
   onSubmit(): void {
     if (this.newPlace.name.trim() && this.newPlace.description.trim()) {
-      // Gerar ID único para o novo lugar
-      this.newPlace.id = 'place-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      // Remover o ID local já que o MongoDB irá gerar seu próprio _id
+      const placeToCreate = {
+        name: this.newPlace.name,
+        description: this.newPlace.description,
+        image: this.newPlace.image,
+        coordinates: this.newPlace.coordinates,
+        status: this.newPlace.status as 'planned' | 'visited',
+        plannedDate: this.newPlace.plannedDate
+      };
 
-      // Criar cópia do objeto mantendo a data exatamente como está no input
-      const placeCopy = { ...this.newPlace };
-      
-      // Buscar lugares existentes
-      const existingPlaces = JSON.parse(localStorage.getItem('places') || '[]');
-
-      // Adicionar novo lugar
-      existingPlaces.push(placeCopy);
-
-      // Salvar no localStorage
-      localStorage.setItem('places', JSON.stringify(existingPlaces));
-
-      // Voltar para a página principal
-      this.router.navigate(['/mapa']);
+      this.placesService.createPlace(placeToCreate).subscribe({
+        next: (response) => {
+          console.log('Lugar criado com sucesso:', response);
+          // Voltar para a página principal
+          this.router.navigate(['/mapa']);
+        },
+        error: (error) => {
+          console.error('Erro ao criar lugar:', error);
+          alert('Erro ao salvar o lugar. Tente novamente.');
+        }
+      });
     }
   }
 

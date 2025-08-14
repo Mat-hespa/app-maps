@@ -1,19 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, HostListener } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, HostListener, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import * as L from 'leaflet';
-
-interface Place {
-  id: string;
-  name: string;
-  description: string;
-  image: string;
-  coordinates: L.LatLngTuple;
-  status: 'planned' | 'visited';
-  plannedDate?: string;
-  visitDate?: string;
-  visitDescription?: string;
-}
+import { PlacesService, Place } from '../services/places.service';
 
 @Component({
   selector: 'app-map',
@@ -23,11 +13,17 @@ interface Place {
   standalone: true,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
-export class Map implements OnInit {
+export class Map implements OnInit, OnDestroy {
   map!: L.Map;
   popup = L.popup();
   markers: L.Marker[] = [];
   activeMenuId: string | null = null;
+  
+  // Subscription para gerenciar observables
+  private placesSubscription?: Subscription;
+  
+  // Array local para os lugares (será atualizado via subscription)
+  places: Place[] = [];
 
   // Ícones personalizados
   private redIcon = L.divIcon({
@@ -60,51 +56,34 @@ export class Map implements OnInit {
     iconAnchor: [12, 25]
   });
 
-  // Dados iniciais (alguns já visitados para exemplo)
-  places: Place[] = [
-    {
-      id: 'natal-1',
-      name: 'Natal',
-      description: 'Praias incríveis e clima tropical.',
-      image: 'assets/praia.jpg',
-      coordinates: [-5.7945, -35.211],
-      status: 'visited',
-      visitDate: '2023-12-15',
-      visitDescription: 'Viagem incrível! As praias eram maravilhosas.'
-    },
-    {
-      id: 'gramado-1',
-      name: 'Gramado',
-      description: 'Cidade charmosa na serra gaúcha.',
-      image: 'assets/praia.jpg',
-      coordinates: [-29.3747, -50.8764],
-      status: 'planned',
-      plannedDate: '2024-07-20'
-    },
-    {
-      id: 'sjc-1',
-      name: 'São José dos Campos',
-      description: 'Polo tecnológico do Vale do Paraíba.',
-      image: 'assets/praia.jpg',
-      coordinates: [-23.1896, -45.8841],
-      status: 'planned',
-      plannedDate: '2024-09-10'
-    }
-  ];
-
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    private placesService: PlacesService
+  ) {}
 
   ngOnInit(): void {
     // Garantir que a página comece sempre no topo
     this.scrollToTop();
     
-    this.loadPlacesFromStorage();
+    // Inscrever-se para receber atualizações dos lugares
+    this.placesSubscription = this.placesService.places$.subscribe(places => {
+      this.places = places;
+      if (this.map) {
+        this.updateMapMarkers();
+      }
+    });
+    
     this.initializeMap();
+  }
+
+  ngOnDestroy(): void {
+    if (this.placesSubscription) {
+      this.placesSubscription.unsubscribe();
+    }
   }
 
   // Método para garantir scroll para o topo
   private scrollToTop(): void {
-    // Múltiplas abordagens para garantir compatibilidade
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
@@ -118,37 +97,6 @@ export class Map implements OnInit {
   // Getter para lugares planejados
   get plannedPlaces(): Place[] {
     return this.places.filter(place => place.status === 'planned');
-  }
-
-  loadPlacesFromStorage(): void {
-    const savedPlaces = localStorage.getItem('places');
-    if (savedPlaces) {
-      const newPlaces = JSON.parse(savedPlaces);
-      
-      // Garantir que cada lugar tenha um ID único
-      newPlaces.forEach((place: Place) => {
-        if (!place.id) {
-          place.id = 'place-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-        }
-      });
-      
-      this.places = [...this.places, ...newPlaces];
-    }
-    
-    // Verificar se há IDs duplicados e corrigir
-    this.ensureUniqueIds();
-  }
-
-  private ensureUniqueIds(): void {
-    const usedIds = new Set<string>();
-    
-    this.places.forEach(place => {
-      if (usedIds.has(place.id)) {
-        // Gerar novo ID único se houver duplicata
-        place.id = 'place-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-      }
-      usedIds.add(place.id);
-    });
   }
 
   initializeMap(): void {
@@ -167,6 +115,8 @@ export class Map implements OnInit {
   }
 
   updateMapMarkers(): void {
+    if (!this.map) return;
+
     // Remove marcadores existentes
     this.markers.forEach(marker => marker.remove());
     this.markers = [];
@@ -236,46 +186,20 @@ export class Map implements OnInit {
     }
   }
 
-  focusPlace(index: number) {
-    const place = this.visitedPlaces[index];
-    const placeIndex = this.places.findIndex(p => p === place);
-    this.map.setView(place.coordinates, 12, { animate: true });
-
-    // Pequeno delay para garantir que o zoom termine antes de abrir o popup
-    setTimeout(() => {
-      this.markers[placeIndex].openPopup();
-    }, 300);
-  }
-
   focusPlaceByObject(place: Place) {
-    const placeIndex = this.places.findIndex(p => p === place);
+    const placeIndex = this.places.findIndex(p => (p._id || p.id) === (place._id || place.id));
     this.map.setView(place.coordinates, 12, { animate: true });
 
     // Pequeno delay para garantir que o zoom termine antes de abrir o popup
     setTimeout(() => {
-      this.markers[placeIndex].openPopup();
-    }, 300);
-  }
-
-  focusPlannedPlace(index: number) {
-    const place = this.plannedPlaces[index];
-    const placeIndex = this.places.findIndex(p => p === place);
-    this.map.setView(place.coordinates, 12, { animate: true });
-
-    // Pequeno delay para garantir que o zoom termine antes de abrir o popup
-    setTimeout(() => {
-      this.markers[placeIndex].openPopup();
+      if (placeIndex !== -1) {
+        this.markers[placeIndex].openPopup();
+      }
     }, 300);
   }
 
   focusPlannedPlaceByObject(place: Place) {
-    const placeIndex = this.places.findIndex(p => p === place);
-    this.map.setView(place.coordinates, 12, { animate: true });
-
-    // Pequeno delay para garantir que o zoom termine antes de abrir o popup
-    setTimeout(() => {
-      this.markers[placeIndex].openPopup();
-    }, 300);
+    this.focusPlaceByObject(place);
   }
 
   markAsVisited(place: Place, event: Event) {
@@ -287,22 +211,17 @@ export class Map implements OnInit {
     );
 
     if (visitDescription !== null && visitDescription.trim() !== '') {
-      place.status = 'visited';
+      const placeId = place._id || place.id!;
       
-      // Usar data local sem conversão de timezone
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      place.visitDate = `${year}-${month}-${day}`;
-      
-      place.visitDescription = visitDescription;
-      delete place.plannedDate;
-
-      this.savePlacesToStorage();
-      this.updateMapMarkers();
-
-      alert(`${place.name} foi marcado como visitado! 🎉`);
+      this.placesService.markAsVisited(placeId, visitDescription).subscribe({
+        next: () => {
+          alert(`${place.name} foi marcado como visitado! 🎉`);
+        },
+        error: (error) => {
+          console.error('Erro ao marcar como visitado:', error);
+          alert('Erro ao salvar. Tente novamente.');
+        }
+      });
     }
   }
 
@@ -312,20 +231,17 @@ export class Map implements OnInit {
     const confirmChange = confirm(`Deseja mover "${place.name}" de volta para lugares planejados?`);
 
     if (confirmChange) {
-      place.status = 'planned';
+      const placeId = place._id || place.id!;
       
-      // Usar data local sem conversão de timezone
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      place.plannedDate = `${year}-${month}-${day}`;
-      
-      delete place.visitDate;
-      delete place.visitDescription;
-
-      this.savePlacesToStorage();
-      this.updateMapMarkers();
+      this.placesService.markAsPlanned(placeId).subscribe({
+        next: () => {
+          // Sucesso - o observable já atualizará a lista
+        },
+        error: (error) => {
+          console.error('Erro ao marcar como planejado:', error);
+          alert('Erro ao salvar. Tente novamente.');
+        }
+      });
     }
   }
 
@@ -338,9 +254,17 @@ export class Map implements OnInit {
     );
 
     if (newDescription !== null && newDescription.trim() !== '') {
-      place.visitDescription = newDescription;
-      this.savePlacesToStorage();
-      this.updateMapMarkers();
+      const placeId = place._id || place.id!;
+      
+      this.placesService.updateDescription(placeId, newDescription, true).subscribe({
+        next: () => {
+          // Sucesso - o observable já atualizará a lista
+        },
+        error: (error) => {
+          console.error('Erro ao editar descrição:', error);
+          alert('Erro ao salvar. Tente novamente.');
+        }
+      });
     }
   }
 
@@ -353,9 +277,17 @@ export class Map implements OnInit {
     );
 
     if (newDescription !== null && newDescription.trim() !== '') {
-      place.description = newDescription;
-      this.savePlacesToStorage();
-      this.updateMapMarkers();
+      const placeId = place._id || place.id!;
+      
+      this.placesService.updateDescription(placeId, newDescription, false).subscribe({
+        next: () => {
+          // Sucesso - o observable já atualizará a lista
+        },
+        error: (error) => {
+          console.error('Erro ao editar descrição:', error);
+          alert('Erro ao salvar. Tente novamente.');
+        }
+      });
     }
   }
 
@@ -365,26 +297,22 @@ export class Map implements OnInit {
     const confirmDelete = confirm(`Tem certeza que deseja remover "${place.name}" da sua lista?`);
 
     if (confirmDelete) {
-      this.places = this.places.filter(p => p !== place);
-      this.savePlacesToStorage();
-      this.updateMapMarkers();
+      const placeId = place._id || place.id!;
+      
+      this.placesService.deletePlace(placeId).subscribe({
+        next: () => {
+          // Sucesso - o observable já atualizará a lista
+        },
+        error: (error) => {
+          console.error('Erro ao deletar lugar:', error);
+          alert('Erro ao deletar. Tente novamente.');
+        }
+      });
     }
   }
 
-  savePlacesToStorage(): void {
-    const placesToSave = this.places.filter(place =>
-      !['Natal', 'Gramado', 'São José dos Campos'].includes(place.name)
-    );
-    localStorage.setItem('places', JSON.stringify(placesToSave));
-  }
-
   getStats() {
-    return {
-      total: this.places.length,
-      visited: this.visitedPlaces.length,
-      planned: this.plannedPlaces.length,
-      percentage: this.places.length > 0 ? Math.round((this.visitedPlaces.length / this.places.length) * 100) : 0
-    };
+    return this.placesService.getStats();
   }
 
   formatDate(dateString: string): string {
@@ -410,8 +338,10 @@ export class Map implements OnInit {
   }
 
   // Métodos para o menu dropdown mobile
-  togglePlaceMenu(placeId: string, event: Event) {
+  togglePlaceMenu(placeId: string | undefined, event: Event) {
     event.stopPropagation();
+    
+    if (!placeId) return;
     
     // Sempre fecha outros menus primeiro, depois abre o clicado (se não estava aberto)
     const wasOpen = this.activeMenuId === placeId;
@@ -426,7 +356,7 @@ export class Map implements OnInit {
   }
 
   trackByPlace(index: number, place: Place): string {
-    return place.id;
+    return place._id || place.id || index.toString();
   }
 
   @HostListener('document:click', ['$event'])
