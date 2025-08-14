@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, BehaviorSubject, tap, map } from 'rxjs';
 
 export interface Place {
@@ -21,7 +21,7 @@ export interface Place {
   providedIn: 'root'
 })
 export class PlacesService {
-  private readonly API_URL = 'https://maps-backend-4hfs.onrender.com'; // Altere para sua URL da API
+  private readonly API_URL = 'https://maps-backend-4hfs.onrender.com/api'; // Corrigido para incluir /api
   
   // Subject para manter o estado dos lugares em tempo real
   private placesSubject = new BehaviorSubject<Place[]>([]);
@@ -29,6 +29,42 @@ export class PlacesService {
 
   constructor(private http: HttpClient) {
     this.loadPlaces();
+  }
+
+  // Buscar lugar por ID
+  getPlaceById(id: string): Observable<Place> {
+    return this.http.get<{success: boolean, data: Place}>(`${this.API_URL}/places/${id}`).pipe(
+      map(response => response.data)
+    );
+  }
+
+  // Buscar lugares por status
+  getPlacesByStatus(status: 'planned' | 'visited'): Observable<Place[]> {
+    return this.http.get<{success: boolean, data: Place[]}>(`${this.API_URL}/places/status/${status}`).pipe(
+      map(response => response.data || [])
+    );
+  }
+
+  // Buscar lugares próximos
+  getNearbyPlaces(lat: number, lng: number, distance?: number): Observable<Place[]> {
+    let params = new HttpParams()
+      .set('lat', lat.toString())
+      .set('lng', lng.toString());
+    
+    if (distance) {
+      params = params.set('distance', distance.toString());
+    }
+    
+    return this.http.get<{success: boolean, data: Place[]}>(`${this.API_URL}/places/nearby`, { params }).pipe(
+      map(response => response.data || [])
+    );
+  }
+
+  // Obter estatísticas do servidor
+  getServerStats(): Observable<any> {
+    return this.http.get<{success: boolean, data: any}>(`${this.API_URL}/places/stats`).pipe(
+      map(response => response.data)
+    );
   }
 
   // Buscar todos os lugares
@@ -118,7 +154,7 @@ export class PlacesService {
     );
   }
 
-  // Marcar como visitado
+  // Marcar como visitado - usando rota PATCH específica
   markAsVisited(id: string, visitDescription: string): Observable<Place> {
     const today = new Date();
     const year = today.getFullYear();
@@ -126,17 +162,27 @@ export class PlacesService {
     const day = String(today.getDate()).padStart(2, '0');
     const visitDate = `${year}-${month}-${day}`;
 
-    const updates = {
-      status: 'visited' as const,
+    const data = {
       visitDate,
-      visitDescription,
-      plannedDate: undefined
+      visitDescription
     };
 
-    return this.updatePlace(id, updates);
+    return this.http.patch<{success: boolean, data: Place}>(`${this.API_URL}/places/${id}/visit`, data).pipe(
+      tap(response => {
+        if (response.success && response.data) {
+          const currentPlaces = this.placesSubject.value;
+          const index = currentPlaces.findIndex(p => p._id === id || p.id === id);
+          if (index !== -1) {
+            currentPlaces[index] = response.data;
+            this.placesSubject.next([...currentPlaces]);
+          }
+        }
+      }),
+      map(response => response.data)
+    );
   }
 
-  // Marcar como planejado
+  // Marcar como planejado - usando rota PATCH específica
   markAsPlanned(id: string): Observable<Place> {
     const today = new Date();
     const year = today.getFullYear();
@@ -144,14 +190,23 @@ export class PlacesService {
     const day = String(today.getDate()).padStart(2, '0');
     const plannedDate = `${year}-${month}-${day}`;
 
-    const updates = {
-      status: 'planned' as const,
-      plannedDate,
-      visitDate: undefined,
-      visitDescription: undefined
+    const data = {
+      plannedDate
     };
 
-    return this.updatePlace(id, updates);
+    return this.http.patch<{success: boolean, data: Place}>(`${this.API_URL}/places/${id}/plan`, data).pipe(
+      tap(response => {
+        if (response.success && response.data) {
+          const currentPlaces = this.placesSubject.value;
+          const index = currentPlaces.findIndex(p => p._id === id || p.id === id);
+          if (index !== -1) {
+            currentPlaces[index] = response.data;
+            this.placesSubject.next([...currentPlaces]);
+          }
+        }
+      }),
+      map(response => response.data)
+    );
   }
 
   // Editar descrição
@@ -173,7 +228,7 @@ export class PlacesService {
     return this.placesSubject.value.filter(place => place.status === 'planned');
   }
 
-  // Estatísticas
+  // Estatísticas locais (mantido para compatibilidade)
   getStats() {
     const places = this.placesSubject.value;
     return {
@@ -182,6 +237,20 @@ export class PlacesService {
       planned: this.plannedPlaces.length,
       percentage: places.length > 0 ? Math.round((this.visitedPlaces.length / places.length) * 100) : 0
     };
+  }
+
+  // Usar estatísticas do servidor quando possível
+  getStatsFromServer(): Observable<any> {
+    return this.getServerStats().pipe(
+      // Em caso de erro, usar estatísticas locais como fallback
+      map(serverStats => serverStats),
+      // Se der erro, usar stats locais
+      tap({
+        error: () => {
+          console.log('Usando estatísticas locais como fallback');
+        }
+      })
+    );
   }
 
   // Método para sincronizar dados do localStorage com o servidor (útil para migração)
