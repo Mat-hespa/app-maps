@@ -188,14 +188,25 @@ export class Map implements OnInit, OnDestroy {
 
   focusPlaceByObject(place: Place) {
     const placeIndex = this.places.findIndex(p => (p._id || p.id) === (place._id || place.id));
-    this.map.setView(place.coordinates, 12, { animate: true });
+    
+    // Scroll para o mapa para garantir que esteja visível
+    const mapElement = document.getElementById('map');
+    if (mapElement) {
+      mapElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+    }
+    
+    // Centralizar o mapa no lugar com um zoom apropriado
+    this.map.setView(place.coordinates, 14, { animate: true });
 
     // Pequeno delay para garantir que o zoom termine antes de abrir o popup
     setTimeout(() => {
       if (placeIndex !== -1) {
         this.markers[placeIndex].openPopup();
       }
-    }, 300);
+    }, 500);
   }
 
   focusPlannedPlaceByObject(place: Place) {
