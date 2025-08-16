@@ -18,6 +18,22 @@ export class AddPlace implements OnInit {
   map!: L.Map;
   currentMarker?: L.Marker;
 
+  // Ícone personalizado (mesmo usado no map.ts)
+  private customIcon = L.divIcon({
+    html: `<div style="
+      background-color: #3b82f6;
+      width: 25px;
+      height: 25px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 2px solid #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    "></div>`,
+    className: 'custom-marker',
+    iconSize: [25, 25],
+    iconAnchor: [12, 25]
+  });
+
   // Dados do formulário
   newPlace: Place = {
     id: '',
@@ -42,7 +58,6 @@ export class AddPlace implements OnInit {
   ngOnInit(): void {
     // Garantir que a página comece sempre no topo
     this.scrollToTop();
-    
     this.initializeMap();
     this.setDefaultDate();
   }
@@ -138,6 +153,9 @@ export class AddPlace implements OnInit {
   // Buscar localização (pesquisa externa)
   searchLocation(): void {
     if (this.newPlace.name.trim()) {
+      // Sempre rolar para o mapa quando clicar na lupa
+      this.scrollToMap();
+
       // Buscar primeiro no banco de dados local usando busca sem acento
       const normalizedSearchName = normalizeText(this.newPlace.name);
       const localPlace = PLACES_DATABASE.find(place =>
@@ -146,7 +164,6 @@ export class AddPlace implements OnInit {
 
       if (localPlace) {
         this.selectPlace(localPlace);
-        this.scrollToMap();
         return;
       }
 
@@ -160,7 +177,6 @@ export class AddPlace implements OnInit {
             const lon = parseFloat(data[0].lon);
             this.newPlace.coordinates = [lat, lon];
             this.updateMapLocation(lat, lon);
-            this.scrollToMap();
           } else {
             alert('Local não encontrado. Tente clicar no mapa ou usar outro nome.');
           }
@@ -199,8 +215,8 @@ export class AddPlace implements OnInit {
       this.map.removeLayer(this.currentMarker);
     }
 
-    // Adicionar novo marcador
-    this.currentMarker = L.marker([lat, lon]).addTo(this.map);
+    // Adicionar novo marcador com o ícone personalizado
+    this.currentMarker = L.marker([lat, lon], { icon: this.customIcon }).addTo(this.map);
 
     // Centralizar mapa na nova localização
     this.map.setView([lat, lon], 10);
@@ -242,12 +258,12 @@ export class AddPlace implements OnInit {
   setDefaultDate(): void {
     const today = new Date();
     const futureDate = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 dias no futuro
-    
+
     // Usar getFullYear, getMonth, getDate para evitar problemas de timezone
     const year = futureDate.getFullYear();
     const month = String(futureDate.getMonth() + 1).padStart(2, '0');
     const day = String(futureDate.getDate()).padStart(2, '0');
-    
+
     this.newPlace.plannedDate = `${year}-${month}-${day}`;
   }
 
