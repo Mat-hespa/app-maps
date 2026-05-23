@@ -1,14 +1,26 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap, map, finalize } from 'rxjs';
-import { LoadingService } from './loading.service';
+import { BehaviorSubject, Observable, from } from 'rxjs';
+import { map, tap } from 'rxjs/operators';
+import {
+  collection,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  where,
+  orderBy
+} from 'firebase/firestore';
+import { db } from '../firebase.config';
 
 export interface Place {
-  _id?: string; // MongoDB ID
-  id?: string; // ID local (para compatibilidade)
+  _id?: string;       // Firestore document ID
+  id?: string;        // ID legado (compatibilidade)
   name: string;
   description: string;
-  image?: string; // Imagem agora é opcional
+  image?: string;
   coordinates: [number, number];
   status: 'planned' | 'visited';
   plannedDate?: string;
@@ -22,214 +34,137 @@ export interface Place {
   providedIn: 'root'
 })
 export class PlacesService {
-  private readonly API_URL = 'https://maps-backend-4hfs.onrender.com/api'; // Corrigido para incluir /api
-  
-  // Subject para manter o estado dos lugares em tempo real
+  private readonly COLLECTION = 'places';
   private placesSubject = new BehaviorSubject<Place[]>([]);
   public places$ = this.placesSubject.asObservable();
 
-  constructor(private http: HttpClient, private loadingService: LoadingService) {
+  constructor() {
     this.loadPlaces();
   }
 
-  // Buscar lugar por ID
-  getPlaceById(id: string): Observable<Place> {
-    return this.http.get<{success: boolean, data: Place}>(`${this.API_URL}/places/${id}`).pipe(
-      map(response => response.data)
-    );
+  private docToPlace(docSnap: any): Place {
+    const data = docSnap.data();
+    return {
+      ...data,
+      _id: docSnap.id,
+      coordinates: data.coordinates as [number, number]
+    };
   }
 
-  // Buscar lugares por status
-  getPlacesByStatus(status: 'planned' | 'visited'): Observable<Place[]> {
-    return this.http.get<{success: boolean, data: Place[]}>(`${this.API_URL}/places/status/${status}`).pipe(
-      map(response => response.data || [])
-    );
-  }
-
-  // Buscar lugares próximos
-  getNearbyPlaces(lat: number, lng: number, distance?: number): Observable<Place[]> {
-    let params = new HttpParams()
-      .set('lat', lat.toString())
-      .set('lng', lng.toString());
-    
-    if (distance) {
-      params = params.set('distance', distance.toString());
-    }
-    
-    return this.http.get<{success: boolean, data: Place[]}>(`${this.API_URL}/places/nearby`, { params }).pipe(
-      map(response => response.data || [])
-    );
-  }
-
-  // Obter estatísticas do servidor
-  getServerStats(): Observable<any> {
-    return this.http.get<{success: boolean, data: any}>(`${this.API_URL}/places/stats`).pipe(
-      map(response => response.data)
-    );
-  }
-
-  // Buscar todos os lugares
   getPlaces(): Observable<Place[]> {
-    return this.http.get<{success: boolean, data: Place[]}>(`${this.API_URL}/places`).pipe(
-      tap(response => {
-        if (response.success && response.data) {
-          this.placesSubject.next(response.data);
-        }
-      }),
-      map(response => response.data || [])
+    const q = query(collection(db, this.COLLECTION), orderBy('createdAt', 'desc'));
+    return from(getDocs(q)).pipe(
+      map(snapshot => snapshot.docs.map(d => this.docToPlace(d))),
+      tap(places => this.placesSubject.next(places))
     );
   }
 
-  // Recarregar lugares do servidor
   loadPlaces(): void {
     this.getPlaces().subscribe({
-      next: (places) => {
-        console.log('Lugares carregados:', places);
-      },
-      error: (error) => {
-        console.error('Erro ao carregar lugares:', error);
-        // Em caso de erro, usar dados padrão ou localStorage como fallback
-        this.loadFromLocalStorageFallback();
-      }
+      next: (places) => console.log('Lugares carregados:', places.length),
+      error: (error) => console.error('Erro ao carregar lugares:', error)
     });
   }
 
-  // Fallback para localStorage em caso de erro na API
-  private loadFromLocalStorageFallback(): void {
-    const savedPlaces = localStorage.getItem('places');
-    if (savedPlaces) {
-      try {
-        const places = JSON.parse(savedPlaces);
-        this.placesSubject.next(places);
-        console.log('Usando dados do localStorage como fallback');
-      } catch (error) {
-        console.error('Erro ao ler localStorage:', error);
-        this.placesSubject.next([]);
-      }
-    } else {
-      this.placesSubject.next([]);
-    }
+  getPlaceById(id: string): Observable<Place> {
+    return from(getDoc(doc(db, this.COLLECTION, id))).pipe(
+      map(docSnap => {
+        if (!docSnap.exists()) throw new Error('Lugar não encontrado');
+        return this.docToPlace(docSnap);
+      })
+    );
   }
 
-  // Criar novo lugar
+  getPlacesByStatus(status: 'planned' | 'visited'): Observable<Place[]> {
+    const q = query(collection(db, this.COLLECTION), where('status', '==', status));
+    return from(getDocs(q)).pipe(
+      map(snapshot => snapshot.docs.map(d => this.docToPlace(d)))
+    );
+  }
+
   createPlace(place: Omit<Place, '_id' | 'createdAt' | 'updatedAt'>): Observable<Place> {
-    return this.http.post<{success: boolean, data: Place}>(`${this.API_URL}/places`, place).pipe(
-      tap(response => {
-        if (response.success && response.data) {
-          const currentPlaces = this.placesSubject.value;
-          this.placesSubject.next([...currentPlaces, response.data]);
-        }
-      }),
-      map(response => response.data)
+    const now = new Date().toISOString();
+    const newPlace = {
+      ...place,
+      id: place.id || 'place-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+      createdAt: now,
+      updatedAt: now
+    };
+
+    return from(addDoc(collection(db, this.COLLECTION), newPlace)).pipe(
+      map(docRef => {
+        const created: Place = { ...newPlace, _id: docRef.id };
+        const current = this.placesSubject.value;
+        this.placesSubject.next([created, ...current]);
+        return created;
+      })
     );
   }
 
-  // Atualizar lugar existente
   updatePlace(id: string, updates: Partial<Place>): Observable<Place> {
-    return this.http.put<{success: boolean, data: Place}>(`${this.API_URL}/places/${id}`, updates).pipe(
-      tap(response => {
-        if (response.success && response.data) {
-          const currentPlaces = this.placesSubject.value;
-          const index = currentPlaces.findIndex(p => p._id === id || p.id === id);
-          if (index !== -1) {
-            currentPlaces[index] = response.data;
-            this.placesSubject.next([...currentPlaces]);
-          }
+    const updatedData = { ...updates, updatedAt: new Date().toISOString() };
+    const docRef = doc(db, this.COLLECTION, id);
+
+    return from(updateDoc(docRef, updatedData)).pipe(
+      map(() => {
+        const current = this.placesSubject.value;
+        const index = current.findIndex(p => p._id === id || p.id === id);
+        if (index !== -1) {
+          const updated = { ...current[index], ...updatedData };
+          current[index] = updated;
+          this.placesSubject.next([...current]);
+          return updated;
         }
-      }),
-      map(response => response.data)
+        throw new Error('Lugar não encontrado localmente');
+      })
     );
   }
 
-  // Deletar lugar
   deletePlace(id: string): Observable<void> {
-    return this.http.delete<{success: boolean, message: string}>(`${this.API_URL}/places/${id}`).pipe(
-      tap(response => {
-        if (response.success) {
-          const currentPlaces = this.placesSubject.value;
-          const filteredPlaces = currentPlaces.filter(p => p._id !== id && p.id !== id);
-          this.placesSubject.next(filteredPlaces);
-        }
+    return from(deleteDoc(doc(db, this.COLLECTION, id))).pipe(
+      tap(() => {
+        const current = this.placesSubject.value;
+        this.placesSubject.next(current.filter(p => p._id !== id && p.id !== id));
       }),
       map(() => void 0)
     );
   }
 
-  // Marcar como visitado - usando rota PATCH específica
   markAsVisited(id: string, visitDescription: string): Observable<Place> {
     const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const visitDate = `${year}-${month}-${day}`;
-
-    const data = {
+    const visitDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return this.updatePlace(id, {
+      status: 'visited',
       visitDate,
-      visitDescription
-    };
-
-    return this.http.patch<{success: boolean, data: Place}>(`${this.API_URL}/places/${id}/visit`, data).pipe(
-      tap(response => {
-        if (response.success && response.data) {
-          const currentPlaces = this.placesSubject.value;
-          const index = currentPlaces.findIndex(p => p._id === id || p.id === id);
-          if (index !== -1) {
-            currentPlaces[index] = response.data;
-            this.placesSubject.next([...currentPlaces]);
-          }
-        }
-      }),
-      map(response => response.data)
-    );
+      visitDescription,
+      plannedDate: undefined
+    });
   }
 
-  // Marcar como planejado - usando rota PATCH específica
   markAsPlanned(id: string): Observable<Place> {
     const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    const plannedDate = `${year}-${month}-${day}`;
-
-    const data = {
-      plannedDate
-    };
-
-    return this.http.patch<{success: boolean, data: Place}>(`${this.API_URL}/places/${id}/plan`, data).pipe(
-      tap(response => {
-        if (response.success && response.data) {
-          const currentPlaces = this.placesSubject.value;
-          const index = currentPlaces.findIndex(p => p._id === id || p.id === id);
-          if (index !== -1) {
-            currentPlaces[index] = response.data;
-            this.placesSubject.next([...currentPlaces]);
-          }
-        }
-      }),
-      map(response => response.data)
-    );
+    const plannedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return this.updatePlace(id, {
+      status: 'planned',
+      plannedDate,
+      visitDate: undefined,
+      visitDescription: undefined
+    });
   }
 
-  // Editar descrição
   updateDescription(id: string, description: string, isVisited: boolean = false): Observable<Place> {
-    const updates = isVisited 
-      ? { visitDescription: description }
-      : { description };
-
+    const updates = isVisited ? { visitDescription: description } : { description };
     return this.updatePlace(id, updates);
   }
 
-  // Getter para lugares visitados
   get visitedPlaces(): Place[] {
-    return this.placesSubject.value.filter(place => place.status === 'visited');
+    return this.placesSubject.value.filter(p => p.status === 'visited');
   }
 
-  // Getter para lugares planejados
   get plannedPlaces(): Place[] {
-    return this.placesSubject.value.filter(place => place.status === 'planned');
+    return this.placesSubject.value.filter(p => p.status === 'planned');
   }
 
-  // Estatísticas locais (mantido para compatibilidade)
   getStats() {
     const places = this.placesSubject.value;
     return {
@@ -238,55 +173,5 @@ export class PlacesService {
       planned: this.plannedPlaces.length,
       percentage: places.length > 0 ? Math.round((this.visitedPlaces.length / places.length) * 100) : 0
     };
-  }
-
-  // Usar estatísticas do servidor quando possível
-  getStatsFromServer(): Observable<any> {
-    return this.getServerStats().pipe(
-      // Em caso de erro, usar estatísticas locais como fallback
-      map(serverStats => serverStats),
-      // Se der erro, usar stats locais
-      tap({
-        error: () => {
-          console.log('Usando estatísticas locais como fallback');
-        }
-      })
-    );
-  }
-
-  // Método para sincronizar dados do localStorage com o servidor (útil para migração)
-  syncLocalStorageToServer(): Observable<Place[]> {
-    const savedPlaces = localStorage.getItem('places');
-    if (savedPlaces) {
-      try {
-        const places: Place[] = JSON.parse(savedPlaces);
-        
-        // Enviar cada lugar para o servidor
-        const createPromises = places.map(place => {
-          const { id, ...placeData } = place; // Remove o ID local
-          return this.createPlace(placeData).toPromise();
-        });
-
-        return new Observable(observer => {
-          Promise.all(createPromises)
-            .then(createdPlaces => {
-              // Limpar localStorage após sincronização bem-sucedida
-              localStorage.removeItem('places');
-              observer.next(createdPlaces.filter(Boolean) as Place[]);
-              observer.complete();
-            })
-            .catch(error => {
-              observer.error(error);
-            });
-        });
-      } catch (error) {
-        console.error('Erro ao sincronizar localStorage:', error);
-      }
-    }
-
-    return new Observable(observer => {
-      observer.next([]);
-      observer.complete();
-    });
   }
 }
