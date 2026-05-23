@@ -1,190 +1,132 @@
-<div class="min-h-screen bg-gray-900 text-white">
+<div class="min-h-screen text-white" style="background: #0a0a0f; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
 
-  <!-- Header simplificado -->
-  <div class="border-b border-gray-700">
-    <div class="container mx-auto px-4 py-6 max-w-4xl">
-      <h1 class="text-2xl font-bold bg-gradient-to-r from-red-400 to-red-600 bg-clip-text text-transparent text-center">
-        Planejar Nova Viagem
-      </h1>
+  <!-- Header -->
+  <div class="sticky top-0 z-30 px-4 pt-4 pb-3"
+       style="background: rgba(10,10,15,0.92); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.06);">
+    <div class="flex items-center gap-3 max-w-2xl mx-auto">
+      <button (click)="onCancel()"
+              class="w-9 h-9 flex items-center justify-center rounded-xl transition-colors"
+              style="background: rgba(255,255,255,0.07);">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: rgba(255,255,255,0.7);">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </button>
+      <div>
+        <h1 class="text-lg font-bold text-white tracking-tight">Novo Destino</h1>
+        <p class="text-xs" style="color: rgba(255,255,255,0.4);">Planejar uma viagem</p>
+      </div>
     </div>
   </div>
 
-  <!-- Container principal -->
-  <div class="container mx-auto px-4 py-8 max-w-4xl">
+  <div class="max-w-2xl mx-auto px-4 py-5 space-y-4 pb-10">
 
-    <!-- Layout dividido -->
-    <div class="grid lg:grid-cols-2 gap-8">
+    <form (ngSubmit)="onSubmit()" class="space-y-4">
 
-      <!-- Formulário -->
-      <div class="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 shadow-lg">
-        <h2 class="text-xl font-semibold text-red-400 mb-6">Informações do Destino</h2>
+      <!-- Campo Destino -->
+      <div>
+        <label class="text-xs font-semibold mb-2 block" style="color: rgba(255,255,255,0.5); letter-spacing: 0.05em;">DESTINO</label>
+        <div class="flex gap-2 relative">
+          <div class="flex-1 relative">
+            <input
+              type="text"
+              [(ngModel)]="newPlace.name"
+              (input)="onSearchChange()"
+              (blur)="hideSuggestions()"
+              name="name"
+              placeholder="Paris, Gramado, Praia do Forte..."
+              class="w-full px-4 py-3.5 rounded-2xl text-white text-sm font-medium placeholder-transparent outline-none transition-all"
+              style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); caret-color: #e74c3c;"
+              required
+            />
 
-        <form (ngSubmit)="onSubmit()" class="space-y-6">
-
-          <!-- Nome do lugar com autocomplete -->
-          <div class="relative">
-            <label class="block text-sm font-medium text-red-300 mb-2">
-              Destino *
-            </label>
-            <div class="flex gap-2">
-              <div class="flex-1 relative min-w-0">
-                <input
-                  type="text"
-                  [(ngModel)]="newPlace.name"
-                  (input)="onSearchChange()"
-                  (blur)="hideSuggestions()"
-                  name="name"
-                  placeholder="Ex: Paris, Praia do Forte, Casa da Vovó..."
-                  class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
-                  required
-                />
-
-                <!-- Lista de sugestões -->
-                <div
-                  *ngIf="showSuggestions"
-                  class="absolute top-full left-0 right-0 z-50 bg-gray-800 border border-gray-600 rounded-xl mt-1 max-h-60 overflow-y-auto shadow-lg"
-                >
-                  <div
-                    *ngFor="let place of filteredPlaces"
-                    (click)="selectPlace(place)"
-                    class="px-4 py-3 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-b-0 transition-colors"
-                  >
-                    <div class="flex items-center gap-3">
-                      <span class="text-lg">{{ getCategoryIcon(place.category) }}</span>
-                      <div class="flex-1">
-                        <div class="font-medium text-white">{{ place.name }}</div>
-                        <div class="text-xs text-gray-400">
-                          {{ place.country }}{{ place.state ? ' - ' + place.state : '' }}
-                          • {{ getCategoryName(place.category) }}
-                        </div>
-                      </div>
-                    </div>
+            <!-- Sugestões -->
+            <div *ngIf="showSuggestions"
+                 class="absolute top-full left-0 right-0 z-50 rounded-2xl mt-2 overflow-hidden shadow-2xl"
+                 style="background: #1c1c28; border: 1px solid rgba(255,255,255,0.1);">
+              <div *ngFor="let place of filteredPlaces"
+                   (click)="selectPlace(place)"
+                   class="px-4 py-3 flex items-center gap-3 cursor-pointer transition-colors"
+                   style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <span class="text-lg w-8 text-center">{{ getCategoryIcon(place.category) }}</span>
+                <div>
+                  <div class="text-sm font-medium text-white">{{ place.name }}</div>
+                  <div class="text-xs" style="color: rgba(255,255,255,0.4);">
+                    {{ place.country }}{{ place.state ? ' · ' + place.state : '' }}
                   </div>
                 </div>
               </div>
-
-              <button
-                type="button"
-                (click)="searchLocation()"
-                class="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors"
-                title="Buscar no mapa"
-              >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-              </button>
             </div>
           </div>
 
-          <!-- Data planejada -->
-          <div>
-            <label class="block text-sm font-medium text-red-300 mb-2">
-              Data Planejada *
-            </label>
-            <input
-              type="date"
-              [(ngModel)]="newPlace.plannedDate"
-              name="plannedDate"
-              class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all box-border appearance-none"
-              style="width: 100%; max-width: 100%;"
-              required
-            />
-          </div>
-
-          <!-- Planos/Expectativas -->
-          <div>
-            <label class="block text-sm font-medium text-red-300 mb-2">
-              Planos e Expectativas *
-            </label>
-            <textarea
-              [(ngModel)]="newPlace.description"
-              name="description"
-              rows="4"
-              placeholder="O que vocês querem fazer lá? Que lugares visitar? Quais são as expectativas para essa viagem?"
-              class="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all resize-none"
-              required
-            ></textarea>
-          </div>
-
-          <!-- Dica sobre status -->
-          <div class="bg-blue-900/20 border border-blue-500/30 rounded-xl p-3">
-            <p class="text-blue-200 text-sm">
-              💡 <strong>Dica:</strong> Este lugar será marcado como "Planejado". Depois que vocês visitarem, poderão marcar como "Visitado" e adicionar a experiência real!
-            </p>
-          </div>
-
-          <!-- Botões -->
-          <div class="flex gap-3 pt-4">
-            <button
-              type="submit"
-              class="flex-1 px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-xl transition-all transform hover:scale-105 shadow-lg"
-              [disabled]="!newPlace.name.trim() || !newPlace.description.trim() || !newPlace.plannedDate"
-            >
-              Adicionar
-            </button>
-
-            <button
-              type="button"
-              (click)="onCancel()"
-              class="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 font-medium rounded-xl transition-colors"
-            >
-              Cancelar
-            </button>
-          </div>
-
-        </form>
+          <button type="button" (click)="searchLocation()"
+                  class="w-12 h-12 flex items-center justify-center rounded-2xl flex-shrink-0 transition-all active:scale-95"
+                  style="background: linear-gradient(135deg, #c0392b, #e74c3c);">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <!-- Mapa e Coordenadas -->
-      <div class="space-y-6">
-
-        <!-- Coordenadas -->
-        <div class="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 shadow-lg">
-          <h2 class="text-xl font-semibold text-red-400 mb-4">Coordenadas</h2>
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-red-300 mb-2">Latitude</label>
-              <input
-                type="number"
-                [value]="newPlace.coordinates[0]"
-                readonly
-                step="any"
-                placeholder="Latitude"
-                class="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-xl text-gray-300 cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-red-300 mb-2">Longitude</label>
-              <input
-                type="number"
-                [value]="newPlace.coordinates[1]"
-                readonly
-                step="any"
-                placeholder="Longitude"
-                class="w-full px-4 py-3 bg-gray-600 border border-gray-500 rounded-xl text-gray-300 cursor-not-allowed"
-              />
-            </div>
-          </div>
+      <!-- Mapa -->
+      <div>
+        <label class="text-xs font-semibold mb-2 block" style="color: rgba(255,255,255,0.5); letter-spacing: 0.05em;">LOCALIZAÇÃO NO MAPA</label>
+        <div class="rounded-2xl overflow-hidden"
+             style="border: 1px solid rgba(255,255,255,0.08);">
+          <div id="addPlaceMap" style="height: 52vw; min-height: 200px; max-height: 280px; width: 100%;"></div>
         </div>
-
-        <!-- Mapa -->
-        <div class="bg-gray-800/50 rounded-2xl border border-gray-700 p-6 shadow-lg">
-          <h2 class="text-xl font-semibold text-red-400 mb-4">Selecione no Mapa</h2>
-
-          <div
-            id="addPlaceMap"
-            class="w-full h-80 sm:h-96 lg:h-[28rem] xl:h-[32rem] rounded-xl border border-gray-600 overflow-hidden"
-          ></div>
-
-          <div class="mt-4 bg-red-900/20 border border-red-500/30 rounded-xl p-3">
-            <p class="text-red-200 text-xs">
-              💡 Clique no mapa para marcar o local, use o botão de busca ou digite para autocomplete
-            </p>
-          </div>
-        </div>
-
+        <p class="text-xs mt-2" style="color: rgba(255,255,255,0.3);">
+          Toque no mapa para ajustar a localização
+        </p>
       </div>
 
-    </div>
+      <!-- Data -->
+      <div>
+        <label class="text-xs font-semibold mb-2 block" style="color: rgba(255,255,255,0.5); letter-spacing: 0.05em;">DATA PLANEJADA</label>
+        <input
+          type="date"
+          [(ngModel)]="newPlace.plannedDate"
+          name="plannedDate"
+          class="w-full px-4 py-3.5 rounded-2xl text-white text-sm outline-none transition-all"
+          style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);"
+          required
+        />
+      </div>
+
+      <!-- Descrição -->
+      <div>
+        <label class="text-xs font-semibold mb-2 block" style="color: rgba(255,255,255,0.5); letter-spacing: 0.05em;">PLANOS E EXPECTATIVAS</label>
+        <textarea
+          [(ngModel)]="newPlace.description"
+          name="description"
+          rows="4"
+          placeholder="O que vocês querem fazer lá? Quais são as expectativas?"
+          class="w-full px-4 py-3.5 rounded-2xl text-white text-sm outline-none transition-all resize-none"
+          style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1); caret-color: #e74c3c;"
+          required
+        ></textarea>
+      </div>
+
+      <!-- Dica -->
+      <div class="flex items-start gap-3 px-4 py-3 rounded-2xl"
+           style="background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.15);">
+        <span class="text-base flex-shrink-0 mt-0.5">💡</span>
+        <p class="text-xs leading-relaxed" style="color: rgba(255,255,255,0.5);">
+          Após a visita, você pode marcar o lugar como visitado e adicionar memórias da experiência.
+        </p>
+      </div>
+
+      <!-- Botão salvar -->
+      <button
+        type="submit"
+        class="w-full py-4 rounded-2xl text-white font-semibold text-base transition-all duration-200 active:scale-95 mt-2"
+        style="background: linear-gradient(135deg, #c0392b, #e74c3c); box-shadow: 0 8px 32px rgba(192,57,43,0.35);"
+        [disabled]="!newPlace.name.trim() || !newPlace.description.trim() || !newPlace.plannedDate"
+      >
+        Salvar Destino
+      </button>
+
+    </form>
+
   </div>
 </div>

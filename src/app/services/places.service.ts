@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, from } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
+import { map, tap, finalize } from 'rxjs/operators';
 import {
   collection,
   getDocs,
@@ -14,6 +14,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import { db } from '../firebase.config';
+import { LoadingService } from './loading.service';
 
 export interface Place {
   _id?: string;       // Firestore document ID
@@ -38,7 +39,7 @@ export class PlacesService {
   private placesSubject = new BehaviorSubject<Place[]>([]);
   public places$ = this.placesSubject.asObservable();
 
-  constructor() {
+  constructor(private loadingService: LoadingService) {
     this.loadPlaces();
   }
 
@@ -52,10 +53,12 @@ export class PlacesService {
   }
 
   getPlaces(): Observable<Place[]> {
+    this.loadingService.show('Carregando lugares...', 'places');
     const q = query(collection(db, this.COLLECTION), orderBy('createdAt', 'desc'));
     return from(getDocs(q)).pipe(
       map(snapshot => snapshot.docs.map(d => this.docToPlace(d))),
-      tap(places => this.placesSubject.next(places))
+      tap(places => this.placesSubject.next(places)),
+      finalize(() => this.loadingService.hide())
     );
   }
 
@@ -83,6 +86,7 @@ export class PlacesService {
   }
 
   createPlace(place: Omit<Place, '_id' | 'createdAt' | 'updatedAt'>): Observable<Place> {
+    this.loadingService.show('Salvando lugar...', 'save');
     const now = new Date().toISOString();
     const newPlace = {
       ...place,
@@ -97,11 +101,13 @@ export class PlacesService {
         const current = this.placesSubject.value;
         this.placesSubject.next([created, ...current]);
         return created;
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
   updatePlace(id: string, updates: Partial<Place>): Observable<Place> {
+    this.loadingService.show('Atualizando...', 'update');
     const updatedData = { ...updates, updatedAt: new Date().toISOString() };
     const docRef = doc(db, this.COLLECTION, id);
 
@@ -116,17 +122,20 @@ export class PlacesService {
           return updated;
         }
         throw new Error('Lugar não encontrado localmente');
-      })
+      }),
+      finalize(() => this.loadingService.hide())
     );
   }
 
   deletePlace(id: string): Observable<void> {
+    this.loadingService.show('Removendo...', 'delete');
     return from(deleteDoc(doc(db, this.COLLECTION, id))).pipe(
       tap(() => {
         const current = this.placesSubject.value;
         this.placesSubject.next(current.filter(p => p._id !== id && p.id !== id));
       }),
-      map(() => void 0)
+      map(() => void 0),
+      finalize(() => this.loadingService.hide())
     );
   }
 
